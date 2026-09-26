@@ -1,0 +1,15 @@
+# ビルド生成物
+build/
+.gradle/
+*.apk
+*.aab
+local.properties
+.idea/
+*.iml
+.DS_Store
+# 署名鍵と合言葉(絶対にコミットしない。QRの指紋がこの鍵に紐づく)
+keystore/
+keystore.properties
+# Wi-Fi情報入りのQRと設定
+out/
+wifi.properties
