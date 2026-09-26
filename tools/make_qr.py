@@ -24,8 +24,15 @@ def cert_checksum(apk: pathlib.Path) -> str:
     if not tools:
         sys.exit("build-tools が見つかりません。--checksum で指紋(16進)を直接渡してください。")
     apksigner = tools[-1] / "apksigner"
-    out = subprocess.run([str(apksigner), "verify", "--print-certs", str(apk)],
-                         capture_output=True, text=True, check=True).stdout
+    env = dict(os.environ)
+    jbr = pathlib.Path("/Applications/Android Studio.app/Contents/jbr/Contents/Home")
+    if "JAVA_HOME" not in env and jbr.exists():
+        env["JAVA_HOME"] = str(jbr)  # apksigner は java が要る
+    r = subprocess.run([str(apksigner), "verify", "--print-certs", str(apk)],
+                       capture_output=True, text=True, env=env)
+    if r.returncode != 0:
+        sys.exit("apksigner が失敗しました:\n" + r.stderr)
+    out = r.stdout
     m = re.search(r"certificate SHA-256 digest: ([0-9a-f]{64})", out)
     if not m:
         sys.exit("apksigner の出力から指紋を読めませんでした:\n" + out)
