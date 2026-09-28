@@ -106,8 +106,24 @@ class MainActivity : Activity() {
         Thread {
             runner.runAllAndStore()
             if (isCompliance) LineInstaller.installAsync(this)
-            handler.post { render() }
+            handler.post {
+                render()
+                if (isCompliance) autoContinue(3)
+            }
         }.start()
+    }
+
+    /** ウィザード中はボタンを押さなくても数秒で次へ進む(結果はあとからアプリで見られる)。 */
+    private fun autoContinue(secondsLeft: Int) {
+        if (isFinishing) return
+        val btn = findViewById<Button>(R.id.btnContinue)
+        if (secondsLeft <= 0) {
+            setResult(RESULT_OK)
+            finish()
+            return
+        }
+        btn.text = "セットアップを続行(${secondsLeft}秒後に自動で進みます)"
+        handler.postDelayed({ autoContinue(secondsLeft - 1) }, 1000)
     }
 
     private fun render() {
