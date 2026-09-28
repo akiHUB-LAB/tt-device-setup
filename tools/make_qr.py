@@ -64,6 +64,8 @@ def main():
     ap.add_argument("--security", default=None, help="WPA / WEP / NONE (既定 WPA)")
     ap.add_argument("--line-urls", default="", help="LINEのAPKのURL(カンマ区切り)")
     ap.add_argument("--no-wifi", action="store_true", help="Wi-Fi情報を入れない")
+    ap.add_argument("--skip-disclaimer", action="store_true",
+                    help="「組織が所有するデバイスです」画面を飛ばす(Android 12以降。機種により無視される)")
     ap.add_argument("--out", default=str(ROOT / "out"))
     a = ap.parse_args()
 
@@ -89,6 +91,8 @@ def main():
         "android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": True,
         "android.app.extra.PROVISIONING_SKIP_EDUCATION_SCREENS": True,
     }
+    if a.skip_disclaimer:
+        payload["android.app.extra.PROVISIONING_SKIP_OWNERSHIP_DISCLAIMER"] = True
     if not a.no_wifi and ssid:
         payload["android.app.extra.PROVISIONING_WIFI_SSID"] = ssid
         payload["android.app.extra.PROVISIONING_WIFI_SECURITY_TYPE"] = security
