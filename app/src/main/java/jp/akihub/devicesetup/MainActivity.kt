@@ -89,6 +89,7 @@ class MainActivity : Activity() {
         super.onResume()
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
         render()
+        if (playProtectPending) askPlayProtectDone()
     }
 
     override fun onPause() {
@@ -108,15 +109,48 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.results).text = "自動設定を実行中…"
         Thread {
             runner.runAllAndStore()
-            if (isCompliance) {
-                LineInstaller.installAsync(this)
-                AssetInstallService.start(this)
-            }
+            if (isCompliance) LineInstaller.installAsync(this)
             handler.post {
                 render()
-                if (isCompliance) autoContinue(3)
+                if (!isCompliance) return@post
+                // 資産ダッシュボードを入れる前に、Play プロテクトのスキャンをOFFにしてもらう(利用者の判断、2026-10-01)。
+                // 入れると「スキャンされたことがないデベロッパー」として毎回ブロックされるため。
+                if (AssetAppInstaller.isConfigured(this) && AssetAppInstaller.installedVersion(this) == null &&
+                    PlayProtect.isScanOn(this)
+                ) {
+                    playProtectPending = true
+                    PlayProtect.openSettings(this)
+                } else {
+                    proceedAfterPlayProtect()
+                }
             }
         }.start()
+    }
+
+    // Play プロテクトの画面から戻るのを待っている間。戻ったら確認を出す。
+    private var playProtectPending = false
+    private var playProtectDialog: android.app.AlertDialog? = null
+
+    private fun askPlayProtectDone() {
+        if (playProtectDialog?.isShowing == true) return
+        val on = PlayProtect.isScanOn(this)
+        playProtectDialog = android.app.AlertDialog.Builder(this)
+            .setTitle("Play プロテクト")
+            .setMessage(
+                (if (on) "まだ「アプリをスキャン」がONのようです。" else "「アプリをスキャン」はOFFになっています。") +
+                    "\nOFFにすると、資産ダッシュボードの導入と更新が止められなくなります。"
+            )
+            .setCancelable(false)
+            .setPositiveButton("OFFにした・続ける") { _, _ -> proceedAfterPlayProtect() }
+            .setNeutralButton("設定を開く") { _, _ -> PlayProtect.openSettings(this) }
+            .setNegativeButton("このまま続ける") { _, _ -> proceedAfterPlayProtect() }
+            .show()
+    }
+
+    private fun proceedAfterPlayProtect() {
+        playProtectPending = false
+        AssetInstallService.start(this)
+        autoContinue(3)
     }
 
     /** ウィザード中はボタンを押さなくても数秒で次へ進む(結果はあとからアプリで見られる)。 */
@@ -173,6 +207,9 @@ class MainActivity : Activity() {
     private fun buildChecklists() {
         val manual = listOf(
             Item("chk_line_login", "LINEのログイン(導入完了後)") { launchApp(LineInstaller.LINE_PKG) },
+            Item("chk_play_protect", "Play プロテクトのスキャンOFF(資産ダッシュボードの更新が止められないように)") {
+                PlayProtect.openSettings(this)
+            },
             Item("chk_asset_a11y", "資産ダッシュボードのユーザー補助ON(自動で入らなかったとき)") {
                 open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             },
