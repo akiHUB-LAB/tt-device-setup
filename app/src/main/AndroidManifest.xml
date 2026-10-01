@@ -8,6 +8,11 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- 製造番号を読む(管理端末は自分にこの許可を与えられる)。資産ダッシュボードのTT番号の紐付けに使う -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:label="端末初期設定"
@@ -70,6 +75,20 @@
 
         <receiver
             android:name=".InstallResultReceiver"
+            android:exported="false" />
+
+        <!-- 資産ダッシュボードの「アプリ更新」からの頼み。入れるのはサーバーの署名済みの新しい版だけ -->
+        <receiver
+            android:name=".UpdateAssetAppReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="jp.akihub.devicesetup.UPDATE_ASSET_APP" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".AssetInstallService"
+            android:foregroundServiceType="dataSync"
             android:exported="false" />
     </application>
 </manifest>

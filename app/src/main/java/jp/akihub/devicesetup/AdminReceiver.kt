@@ -35,6 +35,12 @@ class AdminReceiver : DeviceAdminReceiver() {
             if (urls.isNotEmpty()) {
                 Prefs.get(ctx).edit().putString(Prefs.KEY_LINE_URLS, urls).apply()
             }
+            // 資産ダッシュボードの置き場所と、取り出し専用の合言葉(QRの tools/make_qr.py --asset-secrets で入る)。
+            val assetUrl = bundle.getString("asset_url")?.trim().orEmpty()
+            val assetKey = bundle.getString("asset_key")?.trim().orEmpty()
+            if (assetUrl.isNotEmpty() && assetKey.isNotEmpty()) {
+                Prefs.get(ctx).edit().putString(Prefs.KEY_ASSET_URL, assetUrl).putString(Prefs.KEY_ASSET_KEY, assetKey).apply()
+            }
         }
     }
 }

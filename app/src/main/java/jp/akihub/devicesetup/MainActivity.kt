@@ -78,6 +78,9 @@ class MainActivity : Activity() {
             ) {
                 LineInstaller.installAsync(this)
             }
+            if (AssetAppInstaller.isConfigured(this) && AssetAppInstaller.installedVersion(this) == null) {
+                AssetInstallService.start(this)
+            }
         }
         render()
     }
@@ -105,7 +108,10 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.results).text = "自動設定を実行中…"
         Thread {
             runner.runAllAndStore()
-            if (isCompliance) LineInstaller.installAsync(this)
+            if (isCompliance) {
+                LineInstaller.installAsync(this)
+                AssetInstallService.start(this)
+            }
             handler.post {
                 render()
                 if (isCompliance) autoContinue(3)
@@ -147,7 +153,9 @@ class MainActivity : Activity() {
                     "LINEは未導入です。QRにLINEのAPKの置き場所が無いので、ボタンでPlayストアを開いて入れてください。"
                 else "LINEは未導入です。"
         }
-        findViewById<TextView>(R.id.lineStatus).text = lineText
+        val assetText = prefs.getString(Prefs.KEY_ASSET_STATUS, null)
+            ?: if (AssetAppInstaller.isConfigured(this)) "資産ダッシュボード: 未導入" else "資産ダッシュボード: QRに置き場所なし"
+        findViewById<TextView>(R.id.lineStatus).text = lineText + "\n" + assetText
 
         findViewById<TextView>(R.id.policyStatus).text =
             if (nm.isNotificationPolicyAccessGranted) "通知制御の権限あり。サイレント切替の結果は上で確認できます。"
@@ -165,6 +173,9 @@ class MainActivity : Activity() {
     private fun buildChecklists() {
         val manual = listOf(
             Item("chk_line_login", "LINEのログイン(導入完了後)") { launchApp(LineInstaller.LINE_PKG) },
+            Item("chk_asset_a11y", "資産ダッシュボードのユーザー補助ON(自動で入らなかったとき)") {
+                open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            },
             Item("chk_rotate", "自動回転OFF") { open(Intent(Settings.ACTION_DISPLAY_SETTINGS)) },
             Item("chk_eew", "緊急地震速報OFF") { openEmergencyAlerts() },
             Item("chk_saver", "省エネモードON") { open(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)) },

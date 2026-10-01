@@ -12,5 +12,9 @@ class BootReceiver : BroadcastReceiver() {
         val setupDone = Settings.Secure.getInt(context.contentResolver, "user_setup_complete", 0) == 1
         if (!setupDone) return
         SetupRunner(context).finalizeOnce()
+        // 初期設定の途中で取り寄せに失敗していたら、起動のたびにやり直す(入っていれば何もしない)。
+        if (AssetAppInstaller.isConfigured(context) && AssetAppInstaller.installedVersion(context) == null) {
+            AssetInstallService.start(context)
+        }
     }
 }

@@ -11,6 +11,11 @@ object Prefs {
     const val KEY_LAST_RUN_AT = "last_run_at"
     const val KEY_LINE_STATUS = "line_status"      // LINE導入の進み具合(表示用の文章)
     const val KEY_FINALIZE_MSG = "finalize_msg"
+    const val KEY_ASSET_URL = "asset_url"          // QRのおまけ情報: 資産ダッシュボードのApps ScriptのURL
+    const val KEY_ASSET_KEY = "asset_key"          // QRのおまけ情報: アプリの中身を取り出すだけの合言葉
+    const val KEY_ASSET_STATUS = "asset_status"    // 資産ダッシュボード導入の進み具合(表示用の文章)
+    const val KEY_ASSET_LAUNCH_AFTER = "asset_launch_after"
+    const val KEY_SERIAL = "serial"
 
     fun get(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences("setup", Context.MODE_PRIVATE)
