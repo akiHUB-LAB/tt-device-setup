@@ -54,7 +54,21 @@ class SetupRunner(private val ctx: Context) {
         out += applySilent()
         out += applyVolumes()
         out += applyLocationOff()
+        if (Prefs.get(ctx).getBoolean(Prefs.KEY_ENABLE_ADB, false)) out += applyAdbOn()
         return out
+    }
+
+    /**
+     * USBデバッグON(QRで指示したときだけ)。管理端末は公式の設定(ADB_ENABLED)で切り替えられる。
+     * 初めてPCにつないだときの「このパソコンを許可」は端末で押す必要がある(Androidの安全の仕組み)。
+     */
+    private fun applyAdbOn(): Line = try {
+        dpm.setGlobalSetting(admin, Settings.Global.ADB_ENABLED, "1")
+        val v = Settings.Global.getInt(ctx.contentResolver, Settings.Global.ADB_ENABLED, 0)
+        if (v == 1) Line(Line.State.OK, "USBデバッグON(初回の接続で「許可」を押す)")
+        else Line(Line.State.FAIL, "USBデバッグON(現在値 $v)")
+    } catch (e: Exception) {
+        Line(Line.State.FAIL, "USBデバッグON(${e.javaClass.simpleName})")
     }
 
     // ---- 各項目 ----
@@ -138,6 +152,7 @@ class SetupRunner(private val ctx: Context) {
         applyLocationOff()
         applyMasterMute()
         applyVolumes()
+        if (p.getBoolean(Prefs.KEY_ENABLE_ADB, false)) applyAdbOn()
         val msg = "仕上げ完了：位置情報OFFを再適用しました。以後は自動変更しません。\n現在の位置情報：" +
             (if (isLocationOn()) "ON" else "OFF")
         p.edit().putBoolean(Prefs.KEY_FINALIZED, true).putString(Prefs.KEY_FINALIZE_MSG, msg).apply()

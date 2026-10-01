@@ -38,6 +38,10 @@ class AdminReceiver : DeviceAdminReceiver() {
             // 資産ダッシュボードの置き場所と、取り出し専用の合言葉(QRの tools/make_qr.py --asset-secrets で入る)。
             val assetUrl = bundle.getString("asset_url")?.trim().orEmpty()
             val assetKey = bundle.getString("asset_key")?.trim().orEmpty()
+            // USBデバッグをONにするか(make_qr.py --enable-adb)。Macから端末の記録を読むため。
+            if (bundle.getString("enable_adb") == "1") {
+                Prefs.get(ctx).edit().putBoolean(Prefs.KEY_ENABLE_ADB, true).apply()
+            }
             if (assetUrl.isNotEmpty() && assetKey.isNotEmpty()) {
                 Prefs.get(ctx).edit().putString(Prefs.KEY_ASSET_URL, assetUrl).putString(Prefs.KEY_ASSET_KEY, assetKey).apply()
             }

@@ -72,6 +72,7 @@ def main():
     ap.add_argument("--line-urls", default="", help="LINEのAPKのURL(カンマ区切り)")
     ap.add_argument("--asset-secrets", default="",
                     help="資産ダッシュボードの secrets.properties(WEB_APP_URL と TOKEN)。渡すと資産ダッシュボードも無言導入する")
+    ap.add_argument("--enable-adb", action="store_true", help="USBデバッグをONにする(初回の接続の「許可」は端末で押す)")
     ap.add_argument("--no-wifi", action="store_true", help="Wi-Fi情報を入れない")
     ap.add_argument("--skip-disclaimer", action="store_true",
                     help="「組織が所有するデバイスです」画面を飛ばす(Android 12以降。機種により無視される)")
@@ -116,6 +117,8 @@ def main():
             sys.exit(f"{a.asset_secrets} に WEB_APP_URL と TOKEN がありません")
         extras["asset_url"] = sec["WEB_APP_URL"]
         extras["asset_key"] = provision_key(sec["TOKEN"])
+    if a.enable_adb:
+        extras["enable_adb"] = "1"
     if extras:
         payload["android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE"] = extras
 

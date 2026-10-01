@@ -16,6 +16,7 @@ object Prefs {
     const val KEY_ASSET_STATUS = "asset_status"    // 資産ダッシュボード導入の進み具合(表示用の文章)
     const val KEY_ASSET_LAUNCH_AFTER = "asset_launch_after"
     const val KEY_SERIAL = "serial"
+    const val KEY_ENABLE_ADB = "enable_adb"        // QRのおまけ情報: USBデバッグをONにする("1")
 
     fun get(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences("setup", Context.MODE_PRIVATE)
