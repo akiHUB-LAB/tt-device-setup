@@ -86,6 +86,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- 同じ頼みを画面の形で受ける(ZTEは知らせを捨てるため。2026-10-01 TT58) -->
+        <activity
+            android:name=".UpdateAssetAppActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <service
             android:name=".AssetInstallService"
             android:foregroundServiceType="dataSync"

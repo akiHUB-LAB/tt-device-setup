@@ -130,6 +130,11 @@ object AssetAppInstaller {
             setStatus(ctx, "資産ダッシュボードの中身が壊れていました: $it")
             return
         }
+        // 取り寄せの間に別の経路(USB等)で新しい版が入っていたら、古い版で上書きしない(2026-10-01 TT58で起きた)。
+        if (!AssetAppPlan.needsInstall(installedVersion(ctx), versionCode)) {
+            setStatus(ctx, "資産ダッシュボードは最新です(取り寄せ中に新しい版が入っていた)。")
+            return
+        }
         // 初めて入れるときだけ、入れたあとに起動する(更新のときは資産ダッシュボードが自分で起き直す)。
         p.edit().putBoolean(Prefs.KEY_ASSET_LAUNCH_AFTER, installedVersion(ctx) == null).apply()
         setStatus(ctx, "資産ダッシュボードを導入中…($build)")
