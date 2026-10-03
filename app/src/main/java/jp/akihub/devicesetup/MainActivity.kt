@@ -90,6 +90,12 @@ class MainActivity : Activity() {
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
         render()
         if (playProtectPending) askPlayProtectDone()
+        // 設定の画面から戻ってきた。ONになったかを確かめて次へ(まだならもう一度頼む)。
+        when (assetStep) {
+            AssetStep.A11Y -> askAssetA11y()
+            AssetStep.BATTERY -> askAssetBattery()
+            else -> {}
+        }
     }
 
     override fun onPause() {
@@ -150,7 +156,106 @@ class MainActivity : Activity() {
     private fun proceedAfterPlayProtect() {
         playProtectPending = false
         AssetInstallService.start(this)
-        autoContinue(3)
+        if (isCompliance && AssetAppInstaller.isConfigured(this)) {
+            assetStep = AssetStep.WAIT_INSTALL
+            assetWaitStartedAt = System.currentTimeMillis()
+            waitAssetInstalled()
+        } else {
+            autoContinue(3)
+        }
+    }
+
+    // ---- 資産ダッシュボードの仕上げ(QRの流れの中で手でやってもらう) ----
+    // 2026-10-03 利用者の希望: 初期化のあとにUSBを挿して仕上げるのは手間。QRを読んだあとの「次へ」や
+    // Play プロテクトの流れの中で、ユーザー補助のONと電池の最適化の対象外も済ませる。
+    // ユーザー補助がONになると資産ダッシュボードが動き出し、サーバーに「初めてつながった」が届く
+    // (それまでは一度も起動されないので、ダッシュボードにも出なかった)。
+    // ユーザー補助が外れたときに自分で戻す許可(WRITE_SECURE_SETTINGS)だけはUSBでしか渡せない。
+    private enum class AssetStep { NONE, WAIT_INSTALL, A11Y, BATTERY }
+    private var assetStep = AssetStep.NONE
+    private var assetWaitStartedAt = 0L
+    private var assetDialog: android.app.AlertDialog? = null
+
+    private fun waitAssetInstalled() {
+        if (isFinishing || assetStep != AssetStep.WAIT_INSTALL) return
+        val btn = findViewById<Button>(R.id.btnContinue)
+        if (AssetAppInstaller.installedVersion(this) != null) {
+            assetStep = AssetStep.A11Y
+            askAssetA11y()
+            return
+        }
+        if (System.currentTimeMillis() - assetWaitStartedAt > ASSET_WAIT_MS) {
+            // サーバーが混んでいる等で導入が長引いた。待たずに進み、あとで一覧の「開く」から仕上げてもらう。
+            assetStep = AssetStep.NONE
+            Toast.makeText(this, "資産ダッシュボードの導入が長引いているため先へ進みます。あとでこのアプリの一覧から仕上げてください。", Toast.LENGTH_LONG).show()
+            autoContinue(3)
+            return
+        }
+        btn.text = "資産ダッシュボードを導入中…(終わるまで待ちます)"
+        handler.postDelayed({ waitAssetInstalled() }, 2000)
+    }
+
+    private fun assetA11yOn(): Boolean =
+        Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            ?.contains(AssetAppInstaller.PKG + "/") == true
+
+    private fun assetIgnoringBattery(): Boolean =
+        (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
+            .isIgnoringBatteryOptimizations(AssetAppInstaller.PKG)
+
+    private fun askAssetA11y() {
+        if (assetDialog?.isShowing == true) return
+        if (assetA11yOn()) {
+            prefs.edit().putBoolean("chk_asset_a11y", true).apply()
+            buildChecklists()
+            assetStep = AssetStep.BATTERY
+            askAssetBattery()
+            return
+        }
+        assetDialog = android.app.AlertDialog.Builder(this)
+            .setTitle("資産ダッシュボードのユーザー補助")
+            .setMessage("次の画面(ユーザー補助)の上の方にある「資産ダッシュボード」を押して、ONにしてください。\n「許可」などを押したら、「戻る」でこの画面に戻ってきてください。\n(これでUSBを挿さずに仕上がります)")
+            .setCancelable(false)
+            .setPositiveButton("開く") { _, _ -> openAssetA11ySettings() }
+            .setNegativeButton("あとで") { _, _ -> assetStep = AssetStep.NONE; autoContinue(3) }
+            .show()
+    }
+
+    private fun askAssetBattery() {
+        if (assetDialog?.isShowing == true) return
+        if (assetIgnoringBattery()) {
+            prefs.edit().putBoolean("chk_asset_battery", true).apply()
+            buildChecklists()
+            assetStep = AssetStep.NONE
+            autoContinue(3)
+            return
+        }
+        assetDialog = android.app.AlertDialog.Builder(this)
+            .setTitle("電池の最適化")
+            .setMessage("次に出る確認で「許可」を押してください。\n寝ている間に資産ダッシュボードが止められなくなります。")
+            .setCancelable(false)
+            .setPositiveButton("開く") { _, _ -> openAssetBatteryRequest() }
+            .setNegativeButton("あとで") { _, _ -> assetStep = AssetStep.NONE; autoContinue(3) }
+            .show()
+    }
+
+    /**
+     * 資産ダッシュボードのユーザー補助の画面を直接開く。開けない機種はユーザー補助の一覧(SOG04 Android 13 では
+     * 直接は開けず一覧になった。一覧のいちばん上の「サービス」に資産ダッシュボードが出る)。
+     */
+    private fun openAssetA11ySettings() {
+        val component = ComponentName(AssetAppInstaller.PKG, AssetAppInstaller.PKG + ".BalanceAccessibilityService")
+        val detail = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+            .putExtra(Intent.EXTRA_COMPONENT_NAME, component.flattenToString())
+        try { startActivity(detail) } catch (e: Exception) { open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+    }
+
+    /** 資産ダッシュボードに「電池の最適化の確認を出して」と頼んで開く(確認はそのアプリ自身が出す)。 */
+    private fun openAssetBatteryRequest() {
+        val i = packageManager.getLaunchIntentForPackage(AssetAppInstaller.PKG)
+        if (i == null) { open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); return }
+        i.putExtra("request_ignore_battery", true)
+        open(i)
     }
 
     /** ウィザード中はボタンを押さなくても数秒で次へ進む(結果はあとからアプリで見られる)。 */
@@ -210,8 +315,9 @@ class MainActivity : Activity() {
             Item("chk_play_protect", "Play プロテクトのスキャンOFF(資産ダッシュボードの更新が止められないように)") {
                 PlayProtect.openSettings(this)
             },
-            Item("chk_asset_a11y", "資産ダッシュボードのユーザー補助ON(自動で入らなかったとき)") {
-                open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            Item("chk_asset_a11y", "資産ダッシュボードのユーザー補助ON") { openAssetA11ySettings() },
+            Item("chk_asset_battery", "資産ダッシュボードの電池の最適化を「許可」(寝ている間に止められない)") {
+                openAssetBatteryRequest()
             },
             Item("chk_rotate", "自動回転OFF") { open(Intent(Settings.ACTION_DISPLAY_SETTINGS)) },
             Item("chk_eew", "緊急地震速報OFF") { openEmergencyAlerts() },
@@ -293,5 +399,10 @@ class MainActivity : Activity() {
         if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) parts += "Wi-Fi"
         if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) parts += "モバイル"
         return if (parts.isEmpty()) "切断" else parts.joinToString("+") + " 接続中"
+    }
+
+    private companion object {
+        // 資産ダッシュボードの導入を待つ上限。サーバーが混んでいると数分かかる(2026-10-02 TT59)。
+        const val ASSET_WAIT_MS = 4 * 60_000L
     }
 }
