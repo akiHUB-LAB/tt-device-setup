@@ -93,7 +93,6 @@ class MainActivity : Activity() {
         // 設定の画面から戻ってきた。ONになったかを確かめて次へ(まだならもう一度頼む)。
         when (assetStep) {
             AssetStep.A11Y -> askAssetA11y()
-            AssetStep.BATTERY -> askAssetBattery()
             else -> {}
         }
     }
@@ -167,11 +166,12 @@ class MainActivity : Activity() {
 
     // ---- 資産ダッシュボードの仕上げ(QRの流れの中で手でやってもらう) ----
     // 2026-10-03 利用者の希望: 初期化のあとにUSBを挿して仕上げるのは手間。QRを読んだあとの「次へ」や
-    // Play プロテクトの流れの中で、ユーザー補助のONと電池の最適化の対象外も済ませる。
+    // Play プロテクトの流れの中で、ユーザー補助のONも済ませる(手作業はできるだけ少なく)。
     // ユーザー補助がONになると資産ダッシュボードが動き出し、サーバーに「初めてつながった」が届く
     // (それまでは一度も起動されないので、ダッシュボードにも出なかった)。
     // ユーザー補助が外れたときに自分で戻す許可(WRITE_SECURE_SETTINGS)だけはUSBでしか渡せない。
-    private enum class AssetStep { NONE, WAIT_INSTALL, A11Y, BATTERY }
+    // 電池の最適化の「許可」は、端末がつなぎっぱなし(充電中は最適化が働かない)なので手順に入れない(2026-10-03 利用者と決めた)。
+    private enum class AssetStep { NONE, WAIT_INSTALL, A11Y }
     private var assetStep = AssetStep.NONE
     private var assetWaitStartedAt = 0L
     private var assetDialog: android.app.AlertDialog? = null
@@ -199,17 +199,13 @@ class MainActivity : Activity() {
         Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
             ?.contains(AssetAppInstaller.PKG + "/") == true
 
-    private fun assetIgnoringBattery(): Boolean =
-        (getSystemService(Context.POWER_SERVICE) as android.os.PowerManager)
-            .isIgnoringBatteryOptimizations(AssetAppInstaller.PKG)
-
     private fun askAssetA11y() {
         if (assetDialog?.isShowing == true) return
         if (assetA11yOn()) {
             prefs.edit().putBoolean("chk_asset_a11y", true).apply()
             buildChecklists()
-            assetStep = AssetStep.BATTERY
-            askAssetBattery()
+            assetStep = AssetStep.NONE
+            autoContinue(3)
             return
         }
         assetDialog = android.app.AlertDialog.Builder(this)
@@ -217,24 +213,6 @@ class MainActivity : Activity() {
             .setMessage("次の画面(ユーザー補助)の上の方にある「資産ダッシュボード」を押して、ONにしてください。\n「許可」などを押したら、「戻る」でこの画面に戻ってきてください。\n(これでUSBを挿さずに仕上がります)")
             .setCancelable(false)
             .setPositiveButton("開く") { _, _ -> openAssetA11ySettings() }
-            .setNegativeButton("あとで") { _, _ -> assetStep = AssetStep.NONE; autoContinue(3) }
-            .show()
-    }
-
-    private fun askAssetBattery() {
-        if (assetDialog?.isShowing == true) return
-        if (assetIgnoringBattery()) {
-            prefs.edit().putBoolean("chk_asset_battery", true).apply()
-            buildChecklists()
-            assetStep = AssetStep.NONE
-            autoContinue(3)
-            return
-        }
-        assetDialog = android.app.AlertDialog.Builder(this)
-            .setTitle("電池の最適化")
-            .setMessage("次に出る確認で「許可」を押してください。\n寝ている間に資産ダッシュボードが止められなくなります。")
-            .setCancelable(false)
-            .setPositiveButton("開く") { _, _ -> openAssetBatteryRequest() }
             .setNegativeButton("あとで") { _, _ -> assetStep = AssetStep.NONE; autoContinue(3) }
             .show()
     }
@@ -250,13 +228,6 @@ class MainActivity : Activity() {
         try { startActivity(detail) } catch (e: Exception) { open(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
     }
 
-    /** 資産ダッシュボードに「電池の最適化の確認を出して」と頼んで開く(確認はそのアプリ自身が出す)。 */
-    private fun openAssetBatteryRequest() {
-        val i = packageManager.getLaunchIntentForPackage(AssetAppInstaller.PKG)
-        if (i == null) { open(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); return }
-        i.putExtra("request_ignore_battery", true)
-        open(i)
-    }
 
     /** ウィザード中はボタンを押さなくても数秒で次へ進む(結果はあとからアプリで見られる)。 */
     private fun autoContinue(secondsLeft: Int) {
@@ -316,9 +287,6 @@ class MainActivity : Activity() {
                 PlayProtect.openSettings(this)
             },
             Item("chk_asset_a11y", "資産ダッシュボードのユーザー補助ON") { openAssetA11ySettings() },
-            Item("chk_asset_battery", "資産ダッシュボードの電池の最適化を「許可」(寝ている間に止められない)") {
-                openAssetBatteryRequest()
-            },
             Item("chk_rotate", "自動回転OFF") { open(Intent(Settings.ACTION_DISPLAY_SETTINGS)) },
             Item("chk_eew", "緊急地震速報OFF") { openEmergencyAlerts() },
             Item("chk_saver", "省エネモードON") { open(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)) },
