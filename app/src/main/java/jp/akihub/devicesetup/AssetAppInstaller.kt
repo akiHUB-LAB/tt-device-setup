@@ -193,7 +193,28 @@ object AssetAppInstaller {
         }
     }
 
+    /**
+     * サーバー(Apps Script)は、何も悪くなくても4回に1回ほど、JSONの代わりにGoogleのエラーの画面
+     * (「ドライブ: 現在、ファイルを開くことができません」)を返す(2026-10-03 実測)。取り寄せは6回問い合わせるので、
+     * 1回の失敗で止めると2割ほどしか入らなかった(A203SO・XIG07)。失敗した問い合わせだけ、間をあけて数回やり直す。
+     */
     private fun getJson(url: String, readTimeoutMs: Int): JSONObject {
+        var last: Exception? = null
+        for (attempt in 1..GET_ATTEMPTS) {
+            try {
+                return getJsonOnce(url, readTimeoutMs)
+            } catch (e: Exception) {
+                last = e
+                if (attempt < GET_ATTEMPTS) Thread.sleep(RETRY_WAIT_MS * attempt)
+            }
+        }
+        throw last ?: IllegalStateException("サーバーに問い合わせできなかった")
+    }
+
+    private const val GET_ATTEMPTS = 5
+    private const val RETRY_WAIT_MS = 4_000L
+
+    private fun getJsonOnce(url: String, readTimeoutMs: Int): JSONObject {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.instanceFollowRedirects = true
         conn.connectTimeout = 20_000

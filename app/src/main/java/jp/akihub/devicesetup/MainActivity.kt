@@ -142,8 +142,9 @@ class MainActivity : Activity() {
         playProtectDialog = android.app.AlertDialog.Builder(this)
             .setTitle("Play プロテクト")
             .setMessage(
-                (if (on) "まだ「アプリをスキャン」がONのようです。" else "「アプリをスキャン」はOFFになっています。") +
-                    "\nOFFにすると、資産ダッシュボードの導入と更新が止められなくなります。"
+                (if (on) "まだ「アプリをスキャン」がONです。右上の歯車 →「Play プロテクトでアプリをスキャンする」をOFFにしてください" +
+                    "(「有害なアプリの検出を改善」ではないほう)。" else "「アプリをスキャン」はOFFになっています。") +
+                    "\nONのままだと、資産ダッシュボードが「安全でない」と止められて入りません(2026-10-03 XIG07)。"
             )
             .setCancelable(false)
             .setPositiveButton("OFFにした・続ける") { _, _ -> proceedAfterPlayProtect() }
@@ -210,7 +211,9 @@ class MainActivity : Activity() {
         }
         assetDialog = android.app.AlertDialog.Builder(this)
             .setTitle("資産ダッシュボードのユーザー補助")
-            .setMessage("次の画面(ユーザー補助)の上の方にある「資産ダッシュボード」を押して、ONにしてください。\n「許可」などを押したら、「戻る」でこの画面に戻ってきてください。\n(これでUSBを挿さずに仕上がります)")
+            .setMessage("次の画面(ユーザー補助)の上の方にある「資産ダッシュボード」を押して、ONにしてください。\n" +
+                "見当たらなければ「ダウンロードしたアプリ」の中にあります(Xiaomi など)。\n" +
+                "「許可」などを押したら、「戻る」でこの画面に戻ってきてください。\n(これでUSBを挿さずに仕上がります)")
             .setCancelable(false)
             .setPositiveButton("開く") { _, _ -> openAssetA11ySettings() }
             .setNegativeButton("あとで") { _, _ -> assetStep = AssetStep.NONE; autoContinue(3) }
@@ -285,6 +288,10 @@ class MainActivity : Activity() {
             Item("chk_line_login", "LINEのログイン(導入完了後)") { launchApp(LineInstaller.LINE_PKG) },
             Item("chk_play_protect", "Play プロテクトのスキャンOFF(資産ダッシュボードの更新が止められないように)") {
                 PlayProtect.openSettings(this)
+            },
+            Item("chk_asset_install", "資産ダッシュボードを入れ直す(「導入に失敗しました」と出たとき)") {
+                AssetInstallService.start(this)
+                Toast.makeText(this, "資産ダッシュボードの取り寄せをやり直します", Toast.LENGTH_SHORT).show()
             },
             Item("chk_asset_a11y", "資産ダッシュボードのユーザー補助ON") { openAssetA11ySettings() },
             Item("chk_rotate", "自動回転OFF") { open(Intent(Settings.ACTION_DISPLAY_SETTINGS)) },
