@@ -203,6 +203,8 @@ class MainActivity : Activity() {
     private fun askAssetA11y() {
         if (assetDialog?.isShowing == true) return
         if (assetA11yOn()) {
+            // あとから出した通知(待ちきれなかったとき用)は、もう要らない
+            getSystemService(NotificationManager::class.java).cancel(AssetAppInstaller.A11Y_NOTIFICATION_ID)
             prefs.edit().putBoolean("chk_asset_a11y", true).apply()
             buildChecklists()
             assetStep = AssetStep.NONE
@@ -378,6 +380,7 @@ class MainActivity : Activity() {
 
     private companion object {
         // 資産ダッシュボードの導入を待つ上限。サーバーが混んでいると数分かかる(2026-10-02 TT59)。
-        const val ASSET_WAIT_MS = 4 * 60_000L
+        // 失敗した問い合わせをやり直すようにした(0.5.5)ので、4分では足りず案内が出ないまま進んだ(2026-10-05 TT12・TT13)。
+        const val ASSET_WAIT_MS = 8 * 60_000L
     }
 }

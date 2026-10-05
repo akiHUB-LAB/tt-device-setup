@@ -183,6 +183,7 @@ object AssetAppInstaller {
             "ユーザー補助を自動で入れました。"
         }.getOrElse { "ユーザー補助は端末で手で入れてください(${it.javaClass.simpleName})。" }
         setStatus(ctx, "資産ダッシュボードは導入済みです。$a11y")
+        if (!isAssetA11yOn(ctx)) notifyA11y(ctx, dpm, admin)
         val p = Prefs.get(ctx)
         if (p.getBoolean(Prefs.KEY_ASSET_LAUNCH_AFTER, false)) {
             p.edit().putBoolean(Prefs.KEY_ASSET_LAUNCH_AFTER, false).apply()
@@ -191,6 +192,43 @@ object AssetAppInstaller {
                 runCatching { ctx.startActivity(it) }
             }
         }
+    }
+
+    fun isAssetA11yOn(ctx: Context): Boolean =
+        Settings.Secure.getString(ctx.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            ?.contains("$PKG/") == true
+
+    const val A11Y_NOTIFICATION_ID = 2
+
+    /**
+     * 資産ダッシュボードのユーザー補助をONにしてもらう通知。押すとユーザー補助の画面が開く。
+     * 初期設定の途中で入り終わるのを待ちきれず(8分)先へ進んだときも、あとから案内が届くように(2026-10-05 TT12・TT13:
+     * 案内が出ないままホーム画面になり、利用者が自分でアプリを開いてONにした)。
+     */
+    private fun notifyA11y(ctx: Context, dpm: DevicePolicyManager, admin: android.content.ComponentName) {
+        if (Build.VERSION.SDK_INT >= 33) {
+            runCatching {
+                dpm.setPermissionGrantState(admin, ctx.packageName, Manifest.permission.POST_NOTIFICATIONS,
+                    DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+            }
+        }
+        val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
+        nm.createNotificationChannel(android.app.NotificationChannel(
+            "asset_a11y", "資産ダッシュボードの仕上げ", android.app.NotificationManager.IMPORTANCE_HIGH))
+        val open = PendingIntent.getActivity(ctx, 0,
+            Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val n = android.app.Notification.Builder(ctx, "asset_a11y")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle("資産ダッシュボードのユーザー補助をONにしてください")
+            .setContentText("押すとユーザー補助の画面が開きます。「資産ダッシュボード」をONに(Xiaomiは「ダウンロードしたアプリ」の中)")
+            .setStyle(android.app.Notification.BigTextStyle().bigText(
+                "押すとユーザー補助の画面が開きます。上の方の「資産ダッシュボード」をONにしてください" +
+                    "(Xiaomiは「ダウンロードしたアプリ」の中)。ONにするとサーバーにつながります。"))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build()
+        runCatching { nm.notify(A11Y_NOTIFICATION_ID, n) }
     }
 
     /**
