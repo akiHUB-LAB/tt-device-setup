@@ -174,5 +174,43 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="端末の設定を開く" />
+
+        <LinearLayout
+            android:id="@+id/unmanageSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="個人のGoogleアカウントを使うとき"
+                android:textSize="20sp"
+                android:textColor="#000000" />
+
+            <TextView
+                android:id="@+id/unmanageNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/btnUnmanage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="管理を外して、Googleアカウントを作る"
+                android:textColor="#B00020" />
+
+            <Button
+                android:id="@+id/btnAddAccount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Googleアカウントを追加・作成する"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

@@ -63,6 +63,10 @@ class MainActivity : Activity() {
             open(Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS))
         }
         findViewById<Button>(R.id.btnSettings).setOnClickListener { open(Intent(Settings.ACTION_SETTINGS)) }
+        findViewById<Button>(R.id.btnUnmanage).setOnClickListener { confirmUnmanage() }
+        findViewById<Button>(R.id.btnAddAccount).setOnClickListener {
+            if (!Unmanage.openAddGoogleAccount(this)) open(Intent(Settings.ACTION_SETTINGS))
+        }
 
         buildChecklists()
 
@@ -251,8 +255,13 @@ class MainActivity : Activity() {
         if (isFinishing) return
         val nm = getSystemService(NotificationManager::class.java)
 
-        findViewById<TextView>(R.id.ownerStatus).text =
-            if (runner.isOwner) "管理端末として登録済み" else "管理端末ではありません(QRで初期設定した端末のみ自動設定が動きます)"
+        val releasedAt = prefs.getString(Prefs.KEY_RELEASED_AT, null)
+        findViewById<TextView>(R.id.ownerStatus).text = when {
+            runner.isOwner -> "管理端末として登録済み"
+            releasedAt != null -> "管理を外しました($releasedAt)。普通のスマホとして使えます。"
+            else -> "管理端末ではありません(QRで初期設定した端末のみ自動設定が動きます)"
+        }
+        renderUnmanage(releasedAt)
 
         val at = prefs.getString(Prefs.KEY_LAST_RUN_AT, null)
         val result = prefs.getString(Prefs.KEY_LAST_RESULT, null)
@@ -279,6 +288,64 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.language).text = "端末言語：" + Locale.getDefault().getDisplayName(Locale.JAPAN)
 
         findViewById<TextView>(R.id.networkStatus).text = "現在の通信：" + networkSummary()
+    }
+
+    // ---- 管理を外す(個人のGoogleアカウントを使うため。2026-10-09) ----
+
+    private fun renderUnmanage(releasedAt: String?) {
+        val section = findViewById<LinearLayout>(R.id.unmanageSection)
+        // 初期設定ウィザードの途中では出さない(ここで外すとウィザードが失敗する)。
+        section.visibility = if (isCompliance) android.view.View.GONE else android.view.View.VISIBLE
+        val owner = runner.isOwner
+        findViewById<Button>(R.id.btnUnmanage).visibility = if (owner) android.view.View.VISIBLE else android.view.View.GONE
+        findViewById<Button>(R.id.btnAddAccount).visibility = if (owner) android.view.View.GONE else android.view.View.VISIBLE
+        findViewById<TextView>(R.id.unmanageNote).text = when {
+            owner -> "管理端末のままだと、Googleは「仕事用アカウント」しか受け付けず、個人のアカウントを作れません。" +
+                "資産ダッシュボードの導入とユーザー補助のONが済んでから押してください。押すと元に戻せません(戻すには初期化してQRを読み直す)。"
+            releasedAt != null -> "下のボタンでGoogleアカウントを追加できます。新しく作るときは、ログイン画面の「アカウントを作成」→「個人で使用」。" +
+                "まだ「仕事用」と出るときは、一度再起動してからもう一度押してください。"
+            else -> "下のボタンでGoogleアカウントを追加・作成できます。"
+        }
+    }
+
+    private fun confirmUnmanage() {
+        val assetNote = when {
+            !AssetAppInstaller.isConfigured(this) -> ""
+            AssetAppInstaller.installedVersion(this) == null ->
+                "\n\n⚠ 資産ダッシュボードがまだ入っていません。外すと、このアプリからは入れられなくなります。"
+            !AssetAppInstaller.isAssetA11yOn(this) ->
+                "\n\n⚠ 資産ダッシュボードのユーザー補助がまだOFFです。先にONにしておくのがおすすめです。"
+            else -> ""
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("管理を外しますか？")
+            .setMessage(
+                "外すと、この端末は普通のスマホに戻り、個人のGoogleアカウントの作成とPlayストアが使えるようになります。\n\n" +
+                    "・元に戻せません。もう一度管理端末にするには、初期化してQRを読み直します\n" +
+                    "・音量0・位置情報OFF・画面消灯10分はそのまま残ります\n" +
+                    "・資産ダッシュボードはそのまま使えます。更新は資産ダッシュボード自身が行います\n" +
+                    "・外したあと、Googleアカウントの追加画面を開きます" + assetNote
+            )
+            .setPositiveButton("管理を外す") { _, _ -> doUnmanage() }
+            .setNegativeButton("やめる", null)
+            .show()
+    }
+
+    private fun doUnmanage() {
+        val error = Unmanage.release(this)
+        render()
+        if (error != null) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("管理を外せませんでした")
+                .setMessage(error)
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+        Toast.makeText(this, "管理を外しました。Googleアカウントの追加画面を開きます", Toast.LENGTH_LONG).show()
+        handler.postDelayed({
+            if (!Unmanage.openAddGoogleAccount(this)) open(Intent(Settings.ACTION_SETTINGS))
+        }, 800)
     }
 
     // ---- チェックリスト ----
