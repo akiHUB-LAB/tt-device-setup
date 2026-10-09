@@ -15,6 +15,8 @@ class AdminReceiver : DeviceAdminReceiver() {
         saveAdminExtras(context, intent)
         // 初期設定が完了した直後に自動設定を一通り実行する。
         SetupRunner(context).runAllAndStore()
+        // 初期設定の最後に自動で管理を外すための見直しを始める。
+        AutoRelease.schedule(context)
         // Android 11以前(旧フロー)はここで画面を出す。12以降は ADMIN_POLICY_COMPLIANCE で画面が出る。
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             val i = Intent(context, MainActivity::class.java)

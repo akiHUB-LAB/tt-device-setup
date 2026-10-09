@@ -70,6 +70,9 @@ class MainActivity : Activity() {
 
         buildChecklists()
 
+        // 初期設定の最後に自動で管理を外す見直しを予約(外れていれば何もしない)。
+        if (runner.isOwner) AutoRelease.schedule(this)
+
         if (isCompliance) {
             findViewById<Button>(R.id.btnContinue).visibility = android.view.View.VISIBLE
             runSetup()
@@ -92,6 +95,8 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
+        // 普段の画面に戻ってきたとき(ユーザー補助をONにして戻った等)、条件がそろっていればその場で外す。
+        if (!isCompliance && runner.isOwner) AutoRelease.check(this)
         render()
         if (playProtectPending) askPlayProtectDone()
         // 設定の画面から戻ってきた。ONになったかを確かめて次へ(まだならもう一度頼む)。
@@ -299,9 +304,11 @@ class MainActivity : Activity() {
         val owner = runner.isOwner
         findViewById<Button>(R.id.btnUnmanage).visibility = if (owner) android.view.View.VISIBLE else android.view.View.GONE
         findViewById<Button>(R.id.btnAddAccount).visibility = if (owner) android.view.View.GONE else android.view.View.VISIBLE
+        val error = prefs.getString(Prefs.KEY_RELEASE_ERROR, null)
         findViewById<TextView>(R.id.unmanageNote).text = when {
-            owner -> "管理端末のままだと、Googleは「仕事用アカウント」しか受け付けず、個人のアカウントを作れません。" +
-                "資産ダッシュボードの導入とユーザー補助のONが済んでから押してください。押すと元に戻せません(戻すには初期化してQRを読み直す)。"
+            owner -> (AutoRelease.waitingText(this) ?: "") +
+                "\n外すと、Playストアやアプリの更新が普通に使えます。急ぐときは下のボタンで今すぐ外せます(元に戻すには初期化してQRを読み直す)。" +
+                (if (error != null) "\n前回は外せませんでした: $error" else "")
             releasedAt != null -> "下のボタンでGoogleアカウントを追加できます。新しく作るときは、ログイン画面の「アカウントを作成」→「個人で使用」。" +
                 "まだ「仕事用」と出るときは、一度再起動してからもう一度押してください。"
             else -> "下のボタンでGoogleアカウントを追加・作成できます。"
@@ -332,6 +339,7 @@ class MainActivity : Activity() {
     }
 
     private fun doUnmanage() {
+        runner.finalizeOnce()  // 管理端末のうちに、位置情報OFFなどの仕上げを済ませる
         val error = Unmanage.release(this)
         render()
         if (error != null) {

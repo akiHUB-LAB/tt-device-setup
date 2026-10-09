@@ -19,8 +19,8 @@ android {
         applicationId = "jp.akihub.devicesetup"
         minSdk = 28
         targetSdk = 34
-        versionCode = 13
-        versionName = "0.5.7"
+        versionCode = 14
+        versionName = "0.5.8"
     }
 
     signingConfigs {

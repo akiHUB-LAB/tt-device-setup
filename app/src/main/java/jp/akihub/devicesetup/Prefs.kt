@@ -17,7 +17,8 @@ object Prefs {
     const val KEY_ASSET_LAUNCH_AFTER = "asset_launch_after"
     const val KEY_SERIAL = "serial"
     const val KEY_ENABLE_ADB = "enable_adb"        // QRのおまけ情報: USBデバッグをONにする("1")
-    const val KEY_RELEASED_AT = "released_at"      // 「管理を外す」を押した日時(表示用)
+    const val KEY_RELEASED_AT = "released_at"      // 管理を外した日時(表示用)
+    const val KEY_RELEASE_ERROR = "release_error"  // 自動で外せなかったときの理由(表示用)
 
     fun get(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences("setup", Context.MODE_PRIVATE)

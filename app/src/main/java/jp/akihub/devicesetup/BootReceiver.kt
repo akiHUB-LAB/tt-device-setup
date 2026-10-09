@@ -9,6 +9,8 @@ import android.provider.Settings
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        // 自動で管理を外す見直しを、再起動後も続ける(外れていれば何もしない)。
+        AutoRelease.schedule(context, 30_000L)
         val setupDone = Settings.Secure.getInt(context.contentResolver, "user_setup_complete", 0) == 1
         if (!setupDone) return
         SetupRunner(context).finalizeOnce()

@@ -77,6 +77,11 @@
             android:name=".InstallResultReceiver"
             android:exported="false" />
 
+        <!-- 初期設定の最後に自動で管理を外すための見直し(約1分ごと) -->
+        <receiver
+            android:name=".AutoReleaseReceiver"
+            android:exported="false" />
+
         <!-- 資産ダッシュボードの「アプリ更新」からの頼み。入れるのはサーバーの署名済みの新しい版だけ -->
         <receiver
             android:name=".UpdateAssetAppReceiver"

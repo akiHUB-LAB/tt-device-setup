@@ -185,7 +185,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="個人のGoogleアカウントを使うとき"
+                android:text="管理を外す(普通のスマホに戻す)"
                 android:textSize="20sp"
                 android:textColor="#000000" />
 
@@ -201,7 +201,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="管理を外して、Googleアカウントを作る"
+                android:text="今すぐ管理を外す"
                 android:textColor="#B00020" />
 
             <Button
