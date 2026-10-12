@@ -14,6 +14,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- 資産ダッシュボードが入っているかを確かめるため(Android 11以降は宣言しないと他のアプリが見えない)。
+         無いと「入っていない」と判断して入れ直しを繰り返した(2026-10-12 SO-41A、約2分おき) -->
+    <queries>
+        <package android:name="com.akikanno.assetdashboard" />
+    </queries>
+
     <application
         android:label="端末初期設定"
         android:allowBackup="false"

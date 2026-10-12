@@ -37,9 +37,9 @@ object AutoRelease {
         if (!dpm.isDeviceOwnerApp(ctx.packageName)) return State.NOT_OWNER
         if (Settings.Secure.getInt(ctx.contentResolver, "user_setup_complete", 0) != 1) return State.WIZARD_RUNNING
         if (AssetAppInstaller.isConfigured(ctx)) {
-            val installed = AssetAppInstaller.installedVersion(ctx) != null
-            val afterDone = !Prefs.get(ctx).getBoolean(Prefs.KEY_ASSET_LAUNCH_AFTER, false)
-            if (!installed || !afterDone) return State.WAITING_ASSET_INSTALL
+            // ユーザー補助がONなら資産ダッシュボードは動いているので、「入った直後の仕上げ」の記録までは見ない
+            // (取りこぼすと永遠に待つ)。
+            if (AssetAppInstaller.installedVersion(ctx) == null) return State.WAITING_ASSET_INSTALL
             if (!AssetAppInstaller.isAssetA11yOn(ctx)) return State.WAITING_A11Y
         }
         return State.READY
