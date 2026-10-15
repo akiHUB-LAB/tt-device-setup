@@ -76,6 +76,8 @@ def main():
     ap.add_argument("--no-wifi", action="store_true", help="Wi-Fi情報を入れない")
     ap.add_argument("--skip-disclaimer", action="store_true",
                     help="「組織が所有するデバイスです」画面を飛ばす(Android 12以降。機種により無視される)")
+    ap.add_argument("--minimal", action="store_true",
+                    help="必要な指定(管理アプリ・取り先・指紋・Wi-Fi)だけにする。機種によって弾かれる指定がないかの切り分け用(2026-10-15)")
     ap.add_argument("--out", default=str(ROOT / "out"))
     a = ap.parse_args()
 
@@ -101,7 +103,11 @@ def main():
         "android.app.extra.PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED": True,
         "android.app.extra.PROVISIONING_SKIP_EDUCATION_SCREENS": True,
     }
-    if a.skip_disclaimer:
+    if a.minimal:
+        for k in ("PROVISIONING_LOCALE", "PROVISIONING_TIME_ZONE", "PROVISIONING_SKIP_ENCRYPTION",
+                  "PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED", "PROVISIONING_SKIP_EDUCATION_SCREENS"):
+            payload.pop("android.app.extra." + k, None)
+    if a.skip_disclaimer and not a.minimal:
         payload["android.app.extra.PROVISIONING_SKIP_OWNERSHIP_DISCLAIMER"] = True
     if not a.no_wifi and ssid:
         payload["android.app.extra.PROVISIONING_WIFI_SSID"] = ssid
