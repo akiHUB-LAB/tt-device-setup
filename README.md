@@ -39,3 +39,10 @@ QRのURLは版ごとに固定(`releases/download/v1.0.0/...`)なので、新し�
 - `MainActivity`(別名 `PolicyComplianceActivity`) … ウィザード中は自動設定を実行して「セットアップを続行」、普段は記録とチェックリスト。
 - `SetupRunner` … 設定を当てて読み返す本体。
 - `BootReceiver` … 再起動後、ウィザードが終わっていれば一度だけ仕上げを再適用。
+
+## QRが通らない機種(「有害なアプリをブロックしました」が出る機種)
+Googleが承認した管理アプリしかQR登録で通さない機種がある(2025年〜、機種により順次)。自作の管理アプリは鍵が未承認なので止まる。
+その機種は Google公式の TestDPC のQR(`tools/make_qr.py --testdpc`)で Wi-Fi と初期画面飛ばしだけ得て、
+端末で USBデバッグをON(ビルド番号7回タップ)にしたあと、`tools/finish_by_usb.sh SERIAL` で
+TestDPCの管理を外す・消す・設定値(消灯10分・音量0・サイレント・位置情報OFF)を入れる(再起動あり)。
+Android 12以降では TestDPC のQRから USBデバッグONは当てられない(設定ファイルを読む入口が呼ばれない)。
