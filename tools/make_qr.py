@@ -9,12 +9,23 @@
   Wi-Fi は wifi.properties(gitignore済み。ssid=... / password=... / security=WPA)に書いておけば省略できる。
   USBデバッグはアプリ側で常にONにするので、QRに指定は要らない。
 
+  自作アプリが Play プロテクトで止まる機種(「有害なアプリをブロックしました」)用:
+  python3 tools/make_qr.py --testdpc \
+      --cosu-config https://github.com/akiHUB-LAB/tt-device-setup/releases/download/v1.0.0/cosu.xml \
+      --out out/testdpc-adb
+  Google公式の TestDPC を入れ、testdpc/cosu.xml の設定(USBデバッグON)を登録直後に当てる。
+
 出力: out/provisioning.json, out/qr.png, out/qr.html(印刷用)
 """
 import argparse, base64, json, os, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 COMPONENT = "jp.akihub.devicesetup/jp.akihub.devicesetup.AdminReceiver"
+
+# Google公式の管理アプリ TestDPC(Googleの承認済み。自作の管理アプリが Play プロテクトで止まる機種用)
+TESTDPC_COMPONENT = "com.afwsamples.testdpc/com.afwsamples.testdpc.DeviceAdminReceiver"
+TESTDPC_URL = "https://github.com/googlesamples/android-testdpc/releases/download/v9.0.12/TestDPC_9.0.12.apk"
+TESTDPC_CHECKSUM_B64 = "gJD2YwtOiWJHkSMkkIfLRlj-quNqG1fb6v100QmzM9w"
 
 
 def cert_checksum(apk: pathlib.Path) -> str:
@@ -57,7 +68,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--apk", help="署名済みAPK(指紋の計算に使う)")
     ap.add_argument("--checksum", help="署名証明書のSHA-256(16進64桁)。--apk の代わり")
-    ap.add_argument("--url", required=True, help="APKの公開URL(https)")
+    ap.add_argument("--url", help="APKの公開URL(https)")
+    ap.add_argument("--testdpc", action="store_true",
+                    help="自作アプリの代わりに Google公式 TestDPC を入れるQRにする(--apk/--url 不要)")
+    ap.add_argument("--cosu-config", default="",
+                    help="TestDPC が登録直後に読む設定ファイル(testdpc/cosu.xml)の公開URL。adb_enabled などを当てる")
     ap.add_argument("--ssid")
     ap.add_argument("--password")
     ap.add_argument("--security", default=None, help="WPA / WEP / NONE (既定 WPA)")
@@ -65,12 +80,18 @@ def main():
     ap.add_argument("--out", default=str(ROOT / "out"))
     a = ap.parse_args()
 
-    if a.checksum:
-        checksum = hex_to_b64url(a.checksum)
-    elif a.apk:
-        checksum = cert_checksum(pathlib.Path(a.apk))
+    if a.testdpc:
+        component, url, checksum = TESTDPC_COMPONENT, TESTDPC_URL, TESTDPC_CHECKSUM_B64
     else:
-        sys.exit("--apk か --checksum のどちらかが必要です")
+        component, url = COMPONENT, a.url
+        if not url:
+            sys.exit("--url が必要です")
+        if a.checksum:
+            checksum = hex_to_b64url(a.checksum)
+        elif a.apk:
+            checksum = cert_checksum(pathlib.Path(a.apk))
+        else:
+            sys.exit("--apk か --checksum のどちらかが必要です")
 
     wifi = read_props(ROOT / "wifi.properties")
     ssid = a.ssid or wifi.get("ssid")
@@ -78,8 +99,8 @@ def main():
     security = a.security or wifi.get("security") or "WPA"
 
     payload = {
-        "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": COMPONENT,
-        "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": a.url,
+        "android.app.extra.PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME": component,
+        "android.app.extra.PROVISIONING_DEVICE_ADMIN_PACKAGE_DOWNLOAD_LOCATION": url,
         "android.app.extra.PROVISIONING_DEVICE_ADMIN_SIGNATURE_CHECKSUM": checksum,
         "android.app.extra.PROVISIONING_LOCALE": "ja_JP",
         "android.app.extra.PROVISIONING_TIME_ZONE": "Asia/Tokyo",
@@ -93,6 +114,9 @@ def main():
         if password:
             payload["android.app.extra.PROVISIONING_WIFI_PASSWORD"] = password
 
+    if a.cosu_config:
+        payload["android.app.extra.PROVISIONING_ADMIN_EXTRAS_BUNDLE"] = {"cosu-demo-config-location": a.cosu_config}
+
     text = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
     out = pathlib.Path(a.out)
@@ -103,20 +127,30 @@ def main():
     qr = segno.make(text, error="m")
     qr.save(str(out / "qr.png"), scale=12, border=4)
 
-    wifi_note = f"Wi-Fi: {ssid}" if (ssid and not a.no_wifi) else "Wi-Fi: なし(手動で接続)"
-    html = f"""<!doctype html><meta charset="utf-8"><title>端末初期設定QR</title>
-<style>body{{font-family:sans-serif;text-align:center;padding:24px}} img{{width:70vmin;max-width:600px;image-rendering:pixelated}}
-ol{{text-align:left;display:inline-block;font-size:18px;line-height:1.7}}</style>
-<h1>端末初期設定QR</h1>
-<img src="qr.png" alt="QR">
-<p>{wifi_note} ／ アプリ: {a.url.split('/')[-1]}</p>
-<ol>
+    if a.testdpc:
+        steps = """<ol>
+<li>端末を初期化し、Googleアカウントが外れていることを確認する</li>
+<li>最初の「ようこそ」画面の何もない所を6回タップし、カメラでこのQRを読む</li>
+<li>「Work only」(仕事用のみ)を選び、残りの画面を進めてホームへ(USBデバッグは自動でONになる)</li>
+<li>ホームで TestDPC を開き「Remove device owner」で管理を外し、TestDPC をアンインストールする</li>
+<li>USBでPCにつないだら、端末に出る「このパソコンを許可」を押す。音量・位置情報などはPCから入れる</li>
+</ol>"""
+    else:
+        steps = """<ol>
 <li>端末を初期化し、Googleアカウントが外れていることを確認する</li>
 <li>最初の「ようこそ」画面の何もない所を6回タップし、カメラでこのQRを読む</li>
 <li>「端末初期設定」の画面が出たら結果を見て「セットアップを続行」</li>
 <li>残りの画面を進めてホーム画面へ。アプリ一覧の「端末初期設定」で手動項目を仕上げる</li>
 <li>USBでPCにつないだら、端末に出る「このパソコンを許可」を押す</li>
 </ol>"""
+    wifi_note = f"Wi-Fi: {ssid}" if (ssid and not a.no_wifi) else "Wi-Fi: なし(手動で接続)"
+    html = f"""<!doctype html><meta charset="utf-8"><title>端末初期設定QR</title>
+<style>body{{font-family:sans-serif;text-align:center;padding:24px}} img{{width:70vmin;max-width:600px;image-rendering:pixelated}}
+ol{{text-align:left;display:inline-block;font-size:18px;line-height:1.7}}</style>
+<h1>端末初期設定QR</h1>
+<img src="qr.png" alt="QR">
+<p>{wifi_note} ／ アプリ: {url.split('/')[-1]}</p>
+{steps}"""
     (out / "qr.html").write_text(html, encoding="utf-8")
 
     print("QRの中身(JSON):")

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Google公式 TestDPC が QR 登録の直後に読む設定ファイル(COSU設定)。
+     QRの追加情報 cosu-demo-config-location にこのファイルのURLを入れる。
+     mode="default" = 普通のホーム画面に戻す(キオスクにしない)。
+     global-setting は管理端末が当てられる Settings.Global だけ(adb_enabled はその一つ)。
+     許可外の名前を書くと TestDPC が落ちて設定が当たらないので増やすときは注意。 -->
+<cosu-config mode="default">
+    <policies>
+        <!-- USBデバッグON。初めてPCにつないだときの「このパソコンを許可」は端末で押す -->
+        <global-setting name="adb_enabled" value="1" />
+    </policies>
+</cosu-config>
