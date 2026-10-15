@@ -44,9 +44,25 @@ for S in "$@"; do
   done
   sleep 5
   echo "===== $S 読み返し"
+  RM=$("$ADB" -s "$S" shell dumpsys audio 2>/dev/null | grep -m1 "mode (external)" | sed 's/.*= //' | tr -d '\r')
+  if [ "$RM" != "SILENT" ]; then
+    # 1回目の起動でサイレントにならず保存値が2に戻る機種がある(SHV43 Android 10)。書き直してもう一度再起動すると効く
+    echo "サイレントになっていない($RM)。保存値を書き直してもう一度再起動"
+    "$ADB" -s "$S" shell settings put global mode_ringer 0
+    "$ADB" -s "$S" reboot; sleep 40; "$ADB" -s "$S" wait-for-device
+    for i in $(seq 1 40); do
+      [ "$("$ADB" -s "$S" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+      sleep 3
+    done
+    sleep 8
+  fi
   echo -n "サイレント: "; "$ADB" -s "$S" shell dumpsys audio 2>/dev/null | grep -m1 "mode (external)" | sed 's/.*= //'
   for st in 2 5 3 4 1; do
-    echo -n "音量 stream$st: "; "$ADB" -s "$S" shell cmd media_session volume --stream $st --get 2>&1 | tr -d '\r' | grep "volume is" | tail -1 | sed 's/.*volume is //'
+    echo -n "音量 stream$st: "
+    # Android 11以降は cmd media_session、10以前は media
+    V=$("$ADB" -s "$S" shell cmd media_session volume --stream $st --get 2>/dev/null | tr -d '\r' | grep "volume is")
+    [ -z "$V" ] && V=$("$ADB" -s "$S" shell media volume --stream $st --get 2>/dev/null | tr -d '\r' | grep "volume is")
+    echo "$V" | tail -1 | sed 's/.*volume is //'
   done
   echo -n "画面消灯(ms)="; "$ADB" -s "$S" shell settings get system screen_off_timeout
   echo -n "位置情報(0=OFF)="; "$ADB" -s "$S" shell settings get secure location_mode
