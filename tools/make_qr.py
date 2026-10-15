@@ -24,7 +24,9 @@ COMPONENT = "jp.akihub.devicesetup/jp.akihub.devicesetup.AdminReceiver"
 
 # Google公式の管理アプリ TestDPC(Googleの承認済み。自作の管理アプリが Play プロテクトで止まる機種用)
 TESTDPC_COMPONENT = "com.afwsamples.testdpc/com.afwsamples.testdpc.DeviceAdminReceiver"
-TESTDPC_URL = "https://github.com/googlesamples/android-testdpc/releases/download/v9.0.12/TestDPC_9.0.12.apk"
+# 9.0.6以降(targetSdk 34)は Android 14以降で設定ファイルを読む画面が落ちて設定が当たらない(2026-10-15 moto g06で確認)。
+# 9.0.5(targetSdk 33)は同じ署名鍵なので指紋はそのまま。
+TESTDPC_URL = "https://github.com/googlesamples/android-testdpc/releases/download/v9.0.5/TestDPC_9005.apk"
 TESTDPC_CHECKSUM_B64 = "gJD2YwtOiWJHkSMkkIfLRlj-quNqG1fb6v100QmzM9w"
 
 
