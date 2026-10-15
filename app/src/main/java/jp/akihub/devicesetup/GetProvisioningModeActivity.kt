@@ -9,7 +9,6 @@ import android.os.Bundle
 class GetProvisioningModeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        AdminReceiver.saveAdminExtras(this, intent)
         val result = Intent().putExtra(
             DevicePolicyManager.EXTRA_PROVISIONING_MODE,
             DevicePolicyManager.PROVISIONING_MODE_FULLY_MANAGED_DEVICE

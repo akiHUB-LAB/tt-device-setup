@@ -1,24 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-    <!-- 製造番号を読む(管理端末は自分にこの許可を与えられる)。資産ダッシュボードのTT番号の紐付けに使う -->
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- 資産ダッシュボードが入っているかを確かめるため(Android 11以降は宣言しないと他のアプリが見えない)。
-         無いと「入っていない」と判断して入れ直しを繰り返した(2026-10-12 SO-41A、約2分おき) -->
-    <queries>
-        <package android:name="com.akikanno.assetdashboard" />
-    </queries>
 
     <application
         android:label="端末初期設定"
@@ -71,6 +58,7 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- 再起動後、ウィザードが終わっていれば一度だけ仕上げ(位置情報OFFなど)を再適用する -->
         <receiver
             android:name=".BootReceiver"
             android:exported="true">
@@ -78,37 +66,5 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
-
-        <receiver
-            android:name=".InstallResultReceiver"
-            android:exported="false" />
-
-        <!-- 初期設定の最後に自動で管理を外すための見直し(約1分ごと) -->
-        <receiver
-            android:name=".AutoReleaseReceiver"
-            android:exported="false" />
-
-        <!-- 資産ダッシュボードの「アプリ更新」からの頼み。入れるのはサーバーの署名済みの新しい版だけ -->
-        <receiver
-            android:name=".UpdateAssetAppReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="jp.akihub.devicesetup.UPDATE_ASSET_APP" />
-            </intent-filter>
-        </receiver>
-
-        <!-- 同じ頼みを画面の形で受ける(ZTEは知らせを捨てるため。2026-10-01 TT58) -->
-        <activity
-            android:name=".UpdateAssetAppActivity"
-            android:exported="true"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:taskAffinity=""
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-
-        <service
-            android:name=".AssetInstallService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false" />
     </application>
 </manifest>
