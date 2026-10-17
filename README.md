@@ -46,3 +46,9 @@ Googleが承認した管理アプリしかQR登録で通さない機種がある
 端末で USBデバッグをON(ビルド番号7回タップ)にしたあと、`tools/finish_by_usb.sh SERIAL` で
 TestDPCの管理を外す・消す・画面消灯10分・位置情報OFFを入れる(再起動なし)。音量とサイレントは端末で手で下げる。
 Android 12以降では TestDPC のQRから USBデバッグONは当てられない(設定ファイルを読む入口が呼ばれない)。
+
+## 挿したら自動で仕上げる見張り(tools/auto_onboard.sh)
+利用者がやるのは「TestDPCのQR → USBデバッグON → Macに挿して許可」だけ。Macの見張りが、TestDPCの入った端末を見つけると1台ずつ並行で
+TestDPC削除・消灯10分・位置情報OFF → TT番号を製造番号から引く → 資産ダッシュボード導入と番号登録(TikTok専用機)まで流し、Macに通知する。
+TT番号は 手元の控え(~/Library/Application Support/tt-onboard/serial_tt.tsv)→ サーバーの製造番号末尾4桁+機種 → 分からなければMacに入力欄。
+TestDPCの無い端末(普段のTikTok実行などでつないだ端末)には触らない。止めるのは `tools/auto_onboard.sh --stop`。ログは ~/Library/Logs/tt-onboard.log。
