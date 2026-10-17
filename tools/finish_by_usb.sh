@@ -9,6 +9,7 @@ set -u
 ADB=/Users/aki/Library/Android/sdk/platform-tools/adb
 TESTDPC=com.afwsamples.testdpc
 [ $# -ge 1 ] || { echo "使い方: $0 SERIAL [SERIAL...]"; exit 1; }
+DONE=""
 
 for S in "$@"; do
   echo "===== $S $("$ADB" -s "$S" shell getprop ro.product.model | tr -d '\r') / Android $("$ADB" -s "$S" shell getprop ro.build.version.release | tr -d '\r')"
@@ -17,6 +18,12 @@ for S in "$@"; do
     "$ADB" -s "$S" shell dumpsys activity service $TESTDPC clear-device-owner >/dev/null 2>&1
     sleep 3
     "$ADB" -s "$S" uninstall $TESTDPC
+  fi
+  if [ "$("$ADB" -s "$S" shell settings get system screen_off_timeout | tr -d '\r')" = "600000" ] &&
+     [ "$("$ADB" -s "$S" shell dumpsys audio 2>/dev/null | grep -m1 "mode (external)" | sed 's/.*= //' | tr -d '\r')" = "SILENT" ]; then
+    echo "-- すでに設定済み(消灯10分・サイレント)。再起動せず読み返しだけ"
+    DONE="$DONE $S"
+    continue
   fi
   echo "-- 設定値を書く"
   "$ADB" -s "$S" shell settings put system screen_off_timeout 600000
@@ -34,14 +41,23 @@ for S in "$@"; do
   "$ADB" -s "$S" reboot
 done
 
-echo "起動を待っています…"
+echo "起動を待っています(最長2分)…"
 sleep 40
-for S in "$@"; do
-  "$ADB" -s "$S" wait-for-device
+# 再起動後に戻ってくるのを最長2分待つ。ZTE/nubiaはUSBが「充電のみ」に戻って見えなくなるので、永遠に待たず報告して次へ
+wait_back() {
+  local S=$1
   for i in $(seq 1 40); do
-    [ "$("$ADB" -s "$S" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
+    [ "$("$ADB" -s "$S" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && return 0
     sleep 3
   done
+  return 1
+}
+for S in "$@"; do
+  case " $DONE " in *" $S "*) ;; *) sleep 0 ;; esac
+  if ! wait_back "$S"; then
+    echo "===== $S 再起動後にadbから見えない(2分待った)。USBの用途を「ファイル転送」に戻してから、もう一度このスクリプトを実行すると読み返しだけ行う"
+    continue
+  fi
   sleep 5
   echo "===== $S 読み返し"
   RM=$("$ADB" -s "$S" shell dumpsys audio 2>/dev/null | grep -m1 "mode (external)" | sed 's/.*= //' | tr -d '\r')
@@ -49,11 +65,11 @@ for S in "$@"; do
     # 1回目の起動でサイレントにならず保存値が2に戻る機種がある(SHV43 Android 10)。書き直してもう一度再起動すると効く
     echo "サイレントになっていない($RM)。保存値を書き直してもう一度再起動"
     "$ADB" -s "$S" shell settings put global mode_ringer 0
-    "$ADB" -s "$S" reboot; sleep 40; "$ADB" -s "$S" wait-for-device
-    for i in $(seq 1 40); do
-      [ "$("$ADB" -s "$S" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ] && break
-      sleep 3
-    done
+    "$ADB" -s "$S" reboot; sleep 40
+    if ! wait_back "$S"; then
+      echo "===== $S 2回目の再起動後にadbから見えない(2分待った)。USBの用途を「ファイル転送」に戻してから、もう一度実行"
+      continue
+    fi
     sleep 8
   fi
   echo -n "サイレント: "; "$ADB" -s "$S" shell dumpsys audio 2>/dev/null | grep -m1 "mode (external)" | sed 's/.*= //'
