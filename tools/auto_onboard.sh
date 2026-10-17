@@ -2,7 +2,8 @@
 # 挿したら自動で仕上げる見張り(2026-10-17)。利用者がやるのは「QR→USBデバッグON→挿して許可」だけにする。
 #   使い方: tools/auto_onboard.sh            見張りを始める(Ctrl+C か tools/auto_onboard.sh --stop で止める)
 #           tools/auto_onboard.sh --once     今つながっている端末を1回だけ処理して終わる
-#   対象: TestDPC が入っている端末だけ(=QRで初期化した直後)。TikTokの実行などでつないだ普段の端末には触らない。
+#   対象: QRで初期化した直後の端末だけ。TestDPC が入っている端末か、初期設定キットが入っていて資産ダッシュボードがまだ無い端末。
+#         TikTokの実行などでつないだ普段の端末には触らない。
 #   1台ごとに並行で: finish_by_usb.sh(TestDPC削除・消灯10分・位置情報OFF)→ TT番号を製造番号から引く →
 #   資産ダッシュボード導入と番号登録(onboard_device.sh、TikTok専用機・MOVE=1)→ 音量0とサイレント(アプリが対応していれば)
 #   TT番号の引き方: 1) 手元の控え(serial_tt.tsv) 2) サーバーの製造番号末尾4桁+機種 3) 分からなければMacに入力欄を出す
@@ -17,6 +18,8 @@ APK="$DATA/asset-std.apk"
 LOG="$HOME/Library/Logs/tt-onboard.log"
 PIDFILE="$DATA/watch.pid"
 TESTDPC=com.afwsamples.testdpc
+KIT=jp.codex.initialsetupkit          # 初期設定キット(2026-10-17〜。QRでUSBデバッグまでONにする自作の管理アプリ)
+ASSETPKG=com.akikanno.assetdashboard
 mkdir -p "$DATA"; touch "$MAP"
 
 if [ "${1:-}" = "--stop" ]; then
@@ -114,7 +117,9 @@ while :; do
     fi
     [ "$STATE" = device ] || continue
     case "$SEEN" in *" $S "*) continue;; esac
-    if "$ADB" -s "$S" shell pm list packages 2>/dev/null | grep -q "$TESTDPC"; then
+    PK=$("$ADB" -s "$S" shell pm list packages 2>/dev/null | tr -d '\r')
+    if echo "$PK" | grep -q ":$TESTDPC$" ||
+       { echo "$PK" | grep -q ":$KIT$" && ! echo "$PK" | grep -q ":$ASSETPKG$"; }; then
       SEEN="$SEEN $S "
       process "$S" &
     fi
