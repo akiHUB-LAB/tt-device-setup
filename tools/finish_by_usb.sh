@@ -16,8 +16,14 @@ for S in "$@"; do
   if "$ADB" -s "$S" shell pm list packages | tr -d '\r' | grep -q "^package:$TESTDPC$"; then
     echo "-- TestDPCの管理を外して消す"
     "$ADB" -s "$S" shell dumpsys activity service $TESTDPC clear-device-owner >/dev/null 2>&1
-    sleep 3
-    "$ADB" -s "$S" uninstall $TESTDPC
+    # 外れきるまで最長20秒待つ。Xperia SO-52B は「端末管理アプリ」の指定が残り、USBからは外せなかった(2026-10-17)
+    for i in $(seq 1 10); do
+      "$ADB" -s "$S" shell dumpsys device_policy 2>/dev/null | grep -q "$TESTDPC" || break
+      sleep 2
+    done
+    if ! "$ADB" -s "$S" uninstall $TESTDPC | grep -q Success; then
+      echo "!! TestDPCを消せない(端末管理アプリの指定が残っている)。端末で 設定→セキュリティ→セキュリティの詳細設定→デバイス管理アプリ→Test DPC→「このデバイス管理アプリを無効にする」を押してから、adb uninstall $TESTDPC"
+    fi
   fi
   if [ "$("$ADB" -s "$S" shell settings get system screen_off_timeout | tr -d '\r')" = "600000" ] &&
      [ "$("$ADB" -s "$S" shell dumpsys audio 2>/dev/null | grep -m1 "mode (external)" | sed 's/.*= //' | tr -d '\r')" = "SILENT" ]; then
