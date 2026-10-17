@@ -44,5 +44,5 @@ QRのURLは版ごとに固定(`releases/download/v1.0.0/...`)なので、新し�
 Googleが承認した管理アプリしかQR登録で通さない機種がある(2025年〜、機種により順次)。自作の管理アプリは鍵が未承認なので止まる。
 その機種は Google公式の TestDPC のQR(`tools/make_qr.py --testdpc`)で Wi-Fi と初期画面飛ばしだけ得て、
 端末で USBデバッグをON(ビルド番号7回タップ)にしたあと、`tools/finish_by_usb.sh SERIAL` で
-TestDPCの管理を外す・消す・設定値(消灯10分・音量0・サイレント・位置情報OFF)を入れる(再起動あり)。
+TestDPCの管理を外す・消す・画面消灯10分・位置情報OFFを入れる(再起動なし)。音量とサイレントは端末で手で下げる。
 Android 12以降では TestDPC のQRから USBデバッグONは当てられない(設定ファイルを読む入口が呼ばれない)。
