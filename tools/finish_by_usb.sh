@@ -57,13 +57,10 @@ for S in "$@"; do
     sleep 8
   fi
   echo -n "サイレント: "; "$ADB" -s "$S" shell dumpsys audio 2>/dev/null | grep -m1 "mode (external)" | sed 's/.*= //'
-  for st in 2 5 3 4 1; do
-    echo -n "音量 stream$st: "
-    # Android 11以降は cmd media_session、10以前は media
-    V=$("$ADB" -s "$S" shell cmd media_session volume --stream $st --get 2>/dev/null | tr -d '\r' | grep "volume is")
-    [ -z "$V" ] && V=$("$ADB" -s "$S" shell media volume --stream $st --get 2>/dev/null | tr -d '\r' | grep "volume is")
-    echo "$V" | tail -1 | sed 's/.*volume is //'
-  done
+  # 音量はスピーカーの現在値を dumpsys audio から読む(cmd media_session/media は機種・版で出たり出なかったりする)
+  "$ADB" -s "$S" shell dumpsys audio 2>/dev/null | tr -d '\r' \
+    | grep -A6 -E "^- STREAM_(RING|NOTIFICATION|MUSIC|ALARM|SYSTEM):" \
+    | grep -E "^- STREAM|Current" | sed -E 's/^- STREAM_([A-Z]+):/\1/; s/^ *Current: 2 \(speaker\): ([0-9]+).*/  スピーカー=\1/' | paste - - | sed 's/^/音量 /'
   echo -n "画面消灯(ms)="; "$ADB" -s "$S" shell settings get system screen_off_timeout
   echo -n "位置情報(0=OFF)="; "$ADB" -s "$S" shell settings get secure location_mode
   echo -n "USBデバッグ="; "$ADB" -s "$S" shell settings get global adb_enabled
