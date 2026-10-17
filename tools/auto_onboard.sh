@@ -58,13 +58,19 @@ if len(hits)==1: print(hits.pop())" "$S" "$MODEL")
   echo "$TT" | grep -qE '^TT[0-9]{2,3}$' && echo "$TT"
 }
 
-# 音量0とサイレント。資産ダッシュボードに入口ができたらここで呼ぶ(依頼中、2026-10-17)
+# 音量0とサイレント。資産ダッシュボードの受け口(bc87a82、版20261017-1352以降)を呼ぶ。
+# 呼び方は $DATA/quiet_cmd(am broadcast -a com.akikanno.assetdashboard.QUIET -n .../.QuietReceiver)。
+# 結果は「Broadcast completed: result=-1, data="QUIET ok …"」。result=1 は一部だけ(QUIET partial … notes=理由)、
+# 受け口の無い古い版は data が出ない。QUIET の行を QUIET_RES に入れて返す
 quiet() {
   local S=$1
+  QUIET_RES=""
   [ -f "$DATA/quiet_cmd" ] || return 1
   "$ADB" -s "$S" shell cmd notification allow_dnd com.akikanno.assetdashboard >/dev/null 2>&1
   local CMD; CMD=$(cat "$DATA/quiet_cmd")
-  "$ADB" -s "$S" shell "$CMD" 2>&1 | tr -d '\r' | tail -2 | tee -a "$LOG" | grep -q "QUIET ok"
+  QUIET_RES=$("$ADB" -s "$S" shell "$CMD" 2>&1 | tr -d '\r' | grep -oE 'QUIET [^"]*')
+  log "[$S] ${QUIET_RES:-静かにする受け口なし(古い版)}"
+  echo "$QUIET_RES" | grep -q "^QUIET ok"
 }
 
 process() {
@@ -85,7 +91,8 @@ process() {
   echo "$OUT" | sed "s/^/[$TT] /" >> "$LOG"
   if echo "$OUT" | grep -q '"ok":true'; then
     grep -q "^$S	" "$MAP" || printf '%s\t%s\t%s\n' "$S" "$TT" "$MODEL" >> "$MAP"
-    if quiet "$S"; then notify "$TT($MODEL)" "完了。抜いてOK"
+    if quiet "$S"; then notify "$TT($MODEL)" "完了(音量0・サイレントも済み)。抜いてOK"
+    elif [ -n "$QUIET_RES" ]; then notify "$TT($MODEL)" "完了。音量かサイレントが一部だけ($QUIET_RES)。残りを手で"
     else notify "$TT($MODEL)" "完了。音量とサイレントだけ手で下げて、抜いてOK"; fi
   else
     notify "$TT($MODEL)" "番号登録でつまずきました。ログを見てください"
